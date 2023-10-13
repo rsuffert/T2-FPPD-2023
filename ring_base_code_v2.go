@@ -10,8 +10,9 @@ import (
 
 type mensagem struct {
 	tipo  int    // tipo da mensagem para fazer o controle do que fazer (eleicao, confirmacao da eleicao)
-		// 2 - set receiving process as failed
-		// 3 - set receiving process as functional
+		//   2 - set receiving process as failed
+		//   3 - set receiving process as functional
+		// -10 - encerrar processo p/ terminar o programa
 	corpo [3]int // conteudo da mensagem para colocar os ids (usar um tamanho ocmpativel com o numero de processos no anel)
 }
 
@@ -34,21 +35,24 @@ func ElectionController(in chan int) {
 	// 1. mudar o processo 0 - canal de entrada 3 - para falho (defini mensagem tipo 2 pra isto)
 	temp.tipo = 2
 	chans[3] <- temp
-	fmt.Printf("Controle: mudar o processo 0 para falho\n")
-	fmt.Printf("Controle: confirmacao %d\n", <-in) // receber e imprimir confirmacao
+	fmt.Printf("CONTROLE: mudar o processo 0 para falho\n")
+	fmt.Printf("CONTROLE: confirmacao %d\n", <-in) // receber e imprimir confirmacao
 
 	// mudar o processo 1 - canal de entrada 0 - para falho (defini mensagem tipo 2 pra isto)
 	temp.tipo = 2
 	chans[0] <- temp
-	fmt.Printf("Controle: mudar o processo 1 para falho\n")
-	fmt.Printf("Controle: confirmacao %d\n", <-in) // receber e imprimir confirmacao
+	fmt.Printf("CONTROLE: mudar o processo 1 para falho\n")
+	fmt.Printf("CONTROLE: confirmacao %d\n", <-in) // receber e imprimir confirmacao
 
-	// matar os outrs processos com mensagens nao conhecidas (so pra consumir a leitura)
-	temp.tipo = 4
-	chans[1] <- temp
-	chans[2] <- temp
+	// matar os outros processos
+	fmt.Println("Encerrando todos os processos enviando mensagem de termino (codigo -10)")
+	temp.tipo = -10
+	for _, c := range chans {
+		c <- temp
+	}
 
-	fmt.Println("\n   Processo controlador concluido\n")
+	fmt.Println("Processo controlador concluido")
+	fmt.Println() // extra line break without warning
 }
 
 func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) {
@@ -59,29 +63,37 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 	var bFailed bool = false // todos inciam sem falha
 	actualLeader = leader // indicacao do lider veio por paramatro
 
-	temp := <-in // ler mensagem
-	fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2])
-
-	// handle received message
-	switch temp.tipo {
-		case 2:
-		{
-			bFailed = true
-			fmt.Printf("%2d: falho %v \n", TaskId, bFailed)
-			fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
-			controle <- -5
-		}
-		case 3:
-		{
-			bFailed = false
-			fmt.Printf("%2d: falho %v \n", TaskId, bFailed)
-			fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
-			controle <- -5
-		}
-		default:
-		{
-			fmt.Printf("%2d: nao conheco este tipo de mensagem\n", TaskId)
-			fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
+	var stop bool = false
+	for !stop { // loop and serve until told to stop
+		temp := <-in // ler mensagem
+		fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2])
+	
+		// handle received message
+		switch temp.tipo {
+			case 2:
+			{
+				bFailed = true
+				fmt.Printf("%2d: falho %v \n", TaskId, bFailed)
+				fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
+				controle <- -5
+			}
+			case 3:
+			{
+				bFailed = false
+				fmt.Printf("%2d: falho %v \n", TaskId, bFailed)
+				fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
+				controle <- -5
+			}
+			case -10:
+			{
+				fmt.Printf("%2d: encerrando...\n", TaskId)
+				stop = true
+			}
+			default:
+			{
+				fmt.Printf("%2d: nao conheco este tipo de mensagem\n", TaskId)
+				fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
+			}
 		}
 	}
 
@@ -96,11 +108,12 @@ func main() {
 	go ElectionStage(1, chans[0], chans[1], 0) // nao e lider, e o processo 0
 	go ElectionStage(2, chans[1], chans[2], 0) // nao e lider, e o processo 0
 	go ElectionStage(3, chans[2], chans[3], 0) // nao e lider, e o processo 0
-	fmt.Println("\n   Anel de processos criado")
+	fmt.Println("PRINCIPAL: Anel de processos criado")
 
 	// criar o processo controlador
 	go ElectionController(controle)
-	fmt.Println("\n   Processo controlador criado\n")
+	fmt.Println("PRINCIPAL: Processo controlador criado")
+	fmt.Println() // extra line break without warning
 
 	wg.Wait() // Wait for the goroutines to finish\
 }
