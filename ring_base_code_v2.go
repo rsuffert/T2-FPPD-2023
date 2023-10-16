@@ -9,11 +9,8 @@ import (
 )
 
 type mensagem struct {
-	tipo  int    // tipo da mensagem para fazer o controle do que fazer (eleicao, confirmacao da eleicao)
-		//   2 - set receiving process as failed
-		//   3 - set receiving process as functional
-		// -10 - encerrar processo p/ terminar o programa
-	corpo [3]int // conteudo da mensagem para colocar os ids (usar um tamanho ocmpativel com o numero de processos no anel)
+	tipo  int    // tipo da mensagem para fazer o controle do que fazer (eleicao, confirmacao da eleicao etc.)
+	corpo [4]int // conteudo da mensagem para colocar os ids (usar um tamanho ocmpativel com o numero de processos no anel)
 }
 
 var (
@@ -38,15 +35,15 @@ func ElectionController(in chan int) {
 	fmt.Printf("CONTROLE: mudar o processo 0 para falho\n")
 	fmt.Printf("CONTROLE: confirmacao %d\n", <-in) // receber e imprimir confirmacao
 
-	// mudar o processo 1 - canal de entrada 0 - para falho (defini mensagem tipo 2 pra isto)
+	// 2. mudar o processo 1 - canal de entrada 0 - para falho (defini mensagem tipo 2 pra isto)
 	temp.tipo = 2
 	chans[0] <- temp
 	fmt.Printf("CONTROLE: mudar o processo 1 para falho\n")
 	fmt.Printf("CONTROLE: confirmacao %d\n", <-in) // receber e imprimir confirmacao
 
-	// matar os outros processos
-	fmt.Println("Encerrando todos os processos enviando mensagem de termino (codigo -10)")
-	temp.tipo = -10
+	// 3. encerrar os outros processos para terminar o programa
+	fmt.Println("CONTROLE: encerrando todos os processos enviando mensagem de termino (codigo 10)")
+	temp.tipo = 10
 	for _, c := range chans {
 		c <- temp
 	}
@@ -70,26 +67,92 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 	
 		// handle received message
 		switch temp.tipo {
-			case 2:
+			case 0:  // VOTE REQUEST
+			{
+				/*
+				if !bFailed {                   // if this process is failed, ignore and just don't put its ID in the message (don't vote)
+					temp.corpo[TaskId] = TaskId // put id in the message body
+					fmt.Printf("%2d: votei\n", TaskId)
+				} else { fmt.Printf("%2d: nao votei, pois estou inativo\n", TaskId) }
+				fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
+				out <- temp                     // pass message on to the next node
+				*/
+			}
+			case 1:  // ELECTION WINNER CONFIRMATION
+			{
+				/*
+				if !bFailed {                    // if this process is failed, ignore and just don't update its current leader
+					actualLeader = temp.corpo[0] // update current leader
+					fmt.Printf("%2d: atualizei meu lider para %d\n", TaskId, actualLeader)
+				} else { fmt.Printf("%2d: nao atualizei meu lider, pois estou inativo\n", TaskId) }
+				fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
+				out <- temp                      // pass message on to the next node
+				*/
+			}
+			case 2:  // SET FAILURE (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
 			{
 				bFailed = true
 				fmt.Printf("%2d: falho %v \n", TaskId, bFailed)
 				fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
-				controle <- -5
+				controle <- 2
 			}
-			case 3:
+			case 3:  // UNSET FAILURE (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
 			{
+				// TODO: when node comes back, call election
 				bFailed = false
 				fmt.Printf("%2d: falho %v \n", TaskId, bFailed)
 				fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
-				controle <- -5
+				controle <- 3
 			}
-			case -10:
+			case 4:  // INITIATE ELECTION (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
 			{
-				fmt.Printf("%2d: encerrando...\n", TaskId)
-				stop = true
+				/*
+				fmt.Printf("%2d: detectei falha no nodo %d\n", TaskId, temp.corpo[0])
+
+				// construct election message, add my vote and send it in the ring
+				electionMsg := mensagem {
+					tipo: 0, // 0 = election convocation
+					corpo: [4]int{-1, -1, -1, -1},
+				}
+				electionMsg.corpo[TaskId] = TaskId // add my vote
+				out <- electionMsg // send in the ring
+				fmt.Printf("%2d: enviei mensagem de eleicao no anel. Aguardando resultados...\n", TaskId)
+
+				// wait for results to come back, calculate winner, update my leader and construct & send confirmation message in the ring
+				result := <-in // wait for results
+				if result.tipo != 0 {
+					fmt.Printf("%2d: recebi mensagem inesperada como resultado da eleicao (esperava codigo 0, mas recebi %d)\n", TaskId, result.tipo)
+					controle <- -4
+					return
+				}
+				winner := highestValue(result.corpo[:])
+				actualLeader = winner // update my leader
+				confirmationMsg := mensagem {
+					tipo: 1,
+					corpo: [4]int{winner, winner, winner, winner},
+				}
+				fmt.Printf("%2d: recebi resultados e calculei o vencedor como o nodo %d. Enviando confirmacao no anel...\n", TaskId, winner)
+				out <- confirmationMsg
+
+				// wait for confirmation of leaders updated to arrive
+				confirmationResult := <- in
+				if confirmationResult.tipo != 1 {
+					fmt.Printf("%2d: recebi mensagem inesperada como confirmacao de atualizacao de lider (esperava codigo 1, mas recebi %d)\n", TaskId, confirmationResult.tipo)
+					controle <- -4
+					return
+				}
+				fmt.Printf("%2d: recebi confirmacao de que todos lideres foram atualizados e a eleicao foi concluida com sucesso!", TaskId)
+
+				// confirm that the election has been concluded to the controller
+				controle <- 4
+				*/
 			}
-			default:
+			case 10: // TERMINATION REQUEST (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
+			{ 
+				stop = true 
+				controle <- 10
+			}
+			default: // UNKNOWN COMMAND
 			{
 				fmt.Printf("%2d: nao conheco este tipo de mensagem\n", TaskId)
 				fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
@@ -98,6 +161,16 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 	}
 
 	fmt.Printf("%2d: terminei \n", TaskId)
+}
+
+func highestValue(values[]int) int {
+	highest := values[0]
+	for i:=1; i<len(values); i++ {
+		if values[i] > highest {
+			highest = values[i]
+		}
+	}
+	return highest
 }
 
 func main() {
