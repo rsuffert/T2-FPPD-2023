@@ -69,25 +69,21 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 		switch temp.tipo {
 			case 0:  // VOTE REQUEST
 			{
-				/*
 				if !bFailed {                   // if this process is failed, ignore and just don't put its ID in the message (don't vote)
 					temp.corpo[TaskId] = TaskId // put id in the message body
 					fmt.Printf("%2d: votei\n", TaskId)
 				} else { fmt.Printf("%2d: nao votei, pois estou inativo\n", TaskId) }
 				fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
 				out <- temp                     // pass message on to the next node
-				*/
 			}
 			case 1:  // ELECTION WINNER CONFIRMATION
 			{
-				/*
 				if !bFailed {                    // if this process is failed, ignore and just don't update its current leader
 					actualLeader = temp.corpo[0] // update current leader
 					fmt.Printf("%2d: atualizei meu lider para %d\n", TaskId, actualLeader)
 				} else { fmt.Printf("%2d: nao atualizei meu lider, pois estou inativo\n", TaskId) }
 				fmt.Printf("%2d: lider atual %d\n", TaskId, actualLeader)
 				out <- temp                      // pass message on to the next node
-				*/
 			}
 			case 2:  // SET FAILURE (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
 			{
@@ -106,46 +102,9 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 			}
 			case 4:  // INITIATE ELECTION (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
 			{
-				/*
 				fmt.Printf("%2d: detectei falha no nodo %d\n", TaskId, temp.corpo[0])
-
-				// construct election message, add my vote and send it in the ring
-				electionMsg := mensagem {
-					tipo: 0, // 0 = election convocation
-					corpo: [4]int{-1, -1, -1, -1},
-				}
-				electionMsg.corpo[TaskId] = TaskId // add my vote
-				out <- electionMsg // send in the ring
-				fmt.Printf("%2d: enviei mensagem de eleicao no anel. Aguardando resultados...\n", TaskId)
-
-				// wait for results to come back, calculate winner, update my leader and construct & send confirmation message in the ring
-				result := <-in // wait for results
-				if result.tipo != 0 {
-					fmt.Printf("%2d: recebi mensagem inesperada como resultado da eleicao (esperava codigo 0, mas recebi %d)\n", TaskId, result.tipo)
-					controle <- -4
-					return
-				}
-				winner := highestValue(result.corpo[:])
-				actualLeader = winner // update my leader
-				confirmationMsg := mensagem {
-					tipo: 1,
-					corpo: [4]int{winner, winner, winner, winner},
-				}
-				fmt.Printf("%2d: recebi resultados e calculei o vencedor como o nodo %d. Enviando confirmacao no anel...\n", TaskId, winner)
-				out <- confirmationMsg
-
-				// wait for confirmation of leaders updated to arrive
-				confirmationResult := <- in
-				if confirmationResult.tipo != 1 {
-					fmt.Printf("%2d: recebi mensagem inesperada como confirmacao de atualizacao de lider (esperava codigo 1, mas recebi %d)\n", TaskId, confirmationResult.tipo)
-					controle <- -4
-					return
-				}
-				fmt.Printf("%2d: recebi confirmacao de que todos lideres foram atualizados e a eleicao foi concluida com sucesso!", TaskId)
-
-				// confirm that the election has been concluded to the controller
-				controle <- 4
-				*/
+				performElection(TaskId, in, out)
+				controle <- 4 // confirm that the election has been concluded to the controller
 			}
 			case 10: // TERMINATION REQUEST (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
 			{ 
@@ -161,6 +120,42 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 	}
 
 	fmt.Printf("%2d: terminei \n", TaskId)
+}
+
+func performElection(TaskId int, in chan mensagem, out chan mensagem) {
+	// construct election message, add my vote and send it in the ring
+	electionMsg := mensagem {
+		tipo: 0, // 0 = election convocation
+		corpo: [4]int{-1, -1, -1, -1}, // "empty" body (garbage)
+	}
+	electionMsg.corpo[TaskId] = TaskId // add my vote
+	out <- electionMsg // send in the ring
+	fmt.Printf("%2d: enviei mensagem de eleicao no anel. Aguardando resultados...\n", TaskId)
+
+	// wait for results to come back, calculate winner, update my leader and construct & send confirmation message in the ring
+	result := <-in // wait for results
+	if result.tipo != 0 {
+		fmt.Printf("%2d: recebi mensagem inesperada como resultado da eleicao (esperava codigo 0, mas recebi %d)\n", TaskId, result.tipo)
+		controle <- -4
+		return
+	}
+	winner := highestValue(result.corpo[:])
+	actualLeader = winner // update my leader
+	confirmationMsg := mensagem {
+		tipo: 1,
+		corpo: [4]int{winner, winner, winner, winner},
+	}
+	fmt.Printf("%2d: recebi resultados e calculei o vencedor como o nodo %d. Enviando confirmacao no anel...\n", TaskId, winner)
+	out <- confirmationMsg
+
+	// wait for confirmation of leaders updated to arrive
+	confirmationResult := <- in
+	if confirmationResult.tipo != 1 {
+		fmt.Printf("%2d: recebi mensagem inesperada como confirmacao de atualizacao de lider (esperava codigo 1, mas recebi %d)\n", TaskId, confirmationResult.tipo)
+		controle <- -4
+		return
+	}
+	fmt.Printf("%2d: recebi confirmacao de que todos lideres foram atualizados e a eleicao foi concluida com sucesso!", TaskId)
 }
 
 func highestValue(values[]int) int {
