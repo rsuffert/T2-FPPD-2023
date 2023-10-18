@@ -29,23 +29,41 @@ func ElectionController(in chan int) {
 
 	var temp mensagem
 
-	// 1. mudar o processo 0 - canal de entrada 3 - para falho (defini mensagem tipo 2 pra isto)
+	// 1. mudar o processo 3 - canal de entrada 2 - para falho (defini mensagem tipo 2 pra isto)
+	fmt.Printf("CONTROLE: mudar o processo 3 para falho\n")
 	temp.tipo = 2
-	chans[3] <- temp
-	fmt.Printf("CONTROLE: mudar o processo 0 para falho\n")
-	fmt.Printf("CONTROLE: confirmacao %d\n", <-in) // receber e imprimir confirmacao
+	chans[2] <- temp
+	var result int = <- in
+	fmt.Printf("CONTROLE: sucesso = %v\n", result==2) // receber e imprimir confirmacao
 
-	// 2. mudar o processo 1 - canal de entrada 0 - para falho (defini mensagem tipo 2 pra isto)
-	temp.tipo = 2
+	fmt.Println("--------------------------------------------------------------")
+
+	// 2. solicitar ao processo 1 - canal de entrada 0 - para iniciar uma eleicao pois detectou o processo 3 como falho (deve vencer o processo 2)
+	fmt.Printf("CONTROLE: solicitar ao processo 1 para iniciar eleicao pois detectou o processo 3 como falho\n")
+	temp.tipo = 4
+	temp.corpo = [4]int{3, 3, 3, 3}
 	chans[0] <- temp
-	fmt.Printf("CONTROLE: mudar o processo 1 para falho\n")
-	fmt.Printf("CONTROLE: confirmacao %d\n", <-in) // receber e imprimir confirmacao
+	result = <- in
+	fmt.Printf("CONTROLE: sucesso = %v\n", result==4) // receber e imprimir confirmacao
 
-	// 3. encerrar os outros processos para terminar o programa
+	fmt.Println("--------------------------------------------------------------")
+
+	// 3. reativar o processo 3 - canal de entrada 2. ele deve convocar uma eleicao e vencer
+	fmt.Printf("CONTROLE: reativar o processo 3\n")
+	temp.tipo = 3
+	chans[2] <- temp
+	result = <- in
+	fmt.Printf("CONTROLE: sucesso = %v\n", result==3) // receber e imprimir confirmacao
+
+	fmt.Println("--------------------------------------------------------------")
+
+	// 4. encerrar os outros processos para terminar o programa
 	fmt.Println("CONTROLE: encerrando todos os processos enviando mensagem de termino (codigo 10)")
 	temp.tipo = 10
-	for _, c := range chans {
+	for i, c := range chans {
 		c <- temp
+		result = <- in
+		fmt.Printf("CONTROLADOR: confirmacao de termino do processo %d = %v\n", i, result==10)
 	}
 
 	fmt.Println("Processo controlador concluido")
@@ -63,7 +81,7 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 	var stop bool = false
 	for !stop { // loop and serve until told to stop
 		temp := <-in // ler mensagem
-		fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2])
+		fmt.Printf("%2d: recebi mensagem %d, [ %d, %d, %d, %d ]\n", TaskId, temp.tipo, temp.corpo[0], temp.corpo[1], temp.corpo[2], temp.corpo[3])
 	
 		// handle received message
 		switch temp.tipo {
@@ -130,7 +148,7 @@ func performElection(TaskId int, in chan mensagem, out chan mensagem, actualLead
 	}
 	electionMsg.corpo[TaskId] = TaskId // add my vote
 	out <- electionMsg // send in the ring
-	fmt.Printf("%2d: enviei mensagem de eleicao no anel. Aguardando resultados...\n", TaskId)
+	fmt.Printf("%2d: adicionei meu voto e enviei mensagem de eleicao no anel. Aguardando resultados...\n", TaskId)
 
 	// wait for results to come back, calculate winner, update my leader and construct & send confirmation message in the ring
 	result := <-in // wait for results
@@ -140,12 +158,15 @@ func performElection(TaskId int, in chan mensagem, out chan mensagem, actualLead
 		return
 	}
 	winner := highestValue(result.corpo[:])
-	*actualLeader = winner // update my leader
 	confirmationMsg := mensagem {
 		tipo: 1,
 		corpo: [4]int{winner, winner, winner, winner},
 	}
-	fmt.Printf("%2d: recebi resultados e calculei o vencedor como o nodo %d. Enviando confirmacao no anel...\n", TaskId, winner)
+	fmt.Printf("%2d: recebi resultados e calculei o vencedor como o nodo %d\n", TaskId, winner)
+	*actualLeader = winner // update my leader
+	fmt.Printf("%2d: atualizei meu lider para %d\n", TaskId, *actualLeader)
+	fmt.Printf("%2d: lider atual %d\n", TaskId, *actualLeader)
+	fmt.Printf("%2d: enviei mensagem de confirmacao de novo lider no anel. Aguardando resultados...\n", TaskId)
 	out <- confirmationMsg
 
 	// wait for confirmation of leaders updated to arrive
@@ -155,7 +176,7 @@ func performElection(TaskId int, in chan mensagem, out chan mensagem, actualLead
 		controle <- -4
 		return
 	}
-	fmt.Printf("%2d: recebi confirmacao de que todos lideres foram atualizados e a eleicao foi concluida com sucesso!", TaskId)
+	fmt.Printf("%2d: recebi confirmacao de que todos lideres foram atualizados e a eleicao foi concluida com sucesso!\n", TaskId)
 }
 
 func highestValue(values[]int) int {
