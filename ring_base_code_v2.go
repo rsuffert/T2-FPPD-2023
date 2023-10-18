@@ -103,7 +103,7 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 			case 4:  // INITIATE ELECTION (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
 			{
 				fmt.Printf("%2d: detectei falha no nodo %d\n", TaskId, temp.corpo[0])
-				performElection(TaskId, in, out)
+				performElection(TaskId, in, out, &actualLeader)
 				controle <- 4 // confirm that the election has been concluded to the controller
 			}
 			case 10: // TERMINATION REQUEST (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
@@ -122,7 +122,7 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 	fmt.Printf("%2d: terminei \n", TaskId)
 }
 
-func performElection(TaskId int, in chan mensagem, out chan mensagem) {
+func performElection(TaskId int, in chan mensagem, out chan mensagem, actualLeader *int) {
 	// construct election message, add my vote and send it in the ring
 	electionMsg := mensagem {
 		tipo: 0, // 0 = election convocation
@@ -140,7 +140,7 @@ func performElection(TaskId int, in chan mensagem, out chan mensagem) {
 		return
 	}
 	winner := highestValue(result.corpo[:])
-	actualLeader = winner // update my leader
+	*actualLeader = winner // update my leader
 	confirmationMsg := mensagem {
 		tipo: 1,
 		corpo: [4]int{winner, winner, winner, winner},
