@@ -54,8 +54,8 @@ func ElectionController(in chan int) {
 	chans[2] <- temp
 	result = <- in
 	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==3) // receber e imprimir confirmacao
-	result = <- in
-	fmt.Printf("CONTROLADOR: eleicao de reativacao concluida sucesso = %v\n", result == 4)
+	// result = <- in
+	// fmt.Printf("CONTROLADOR: eleicao de reativacao concluida sucesso = %v\n", result == 4)
 	fmt.Println("--------------------------------------------------------------")
 
 	// 4. encerrar os outros processos para terminar o programa
@@ -117,11 +117,8 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 				bFailed = false
 				fmt.Printf("\t%2d: falho %v \n", TaskId, bFailed)
 				fmt.Printf("\t%2d: lider atual = %d\n", TaskId, actualLeader)
-				var electionMsg mensagem
-				electionMsg.tipo = 4
 				fmt.Printf("\t%2d: iniciando eleicao por volta a falha\n", TaskId)
-				// send election message in the ring
-				out <- electionMsg
+				performElection(TaskId, in, out, &actualLeader)
 				controle <- 3
 					
 			}
