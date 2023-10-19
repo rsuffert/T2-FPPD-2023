@@ -54,7 +54,8 @@ func ElectionController(in chan int) {
 	chans[2] <- temp
 	result = <- in
 	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==3) // receber e imprimir confirmacao
-
+	result = <- in
+	fmt.Printf("CONTROLADOR: eleicao de reativacao concluida sucesso = %v\n", result == 4)
 	fmt.Println("--------------------------------------------------------------")
 
 	// 4. encerrar os outros processos para terminar o programa
@@ -112,11 +113,17 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 			}
 			case 3:  // UNSET FAILURE (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
 			{
-				// TODO: when node comes back, call election
+		
 				bFailed = false
 				fmt.Printf("\t%2d: falho %v \n", TaskId, bFailed)
 				fmt.Printf("\t%2d: lider atual = %d\n", TaskId, actualLeader)
+				var electionMsg mensagem
+				electionMsg.tipo = 4
+				fmt.Printf("\t%2d: iniciando eleicao por volta a falha\n", TaskId)
+				// send election message in the ring
+				out <- electionMsg
 				controle <- 3
+					
 			}
 			case 4:  // INITIATE ELECTION (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
 			{
@@ -140,8 +147,8 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 	fmt.Printf("\t%2d: terminei \n", TaskId)
 }
 
-func performElection(TaskId int, in chan mensagem, out chan mensagem, actualLeader *int) {
-	// construct election message, add my vote and send it in the ring
+func performElection(TaskId int, in chan mensagem, out chan mensagem, actualLeader *int) { 
+	//TODO: missing verification if im the one who faild
 	electionMsg := mensagem {
 		tipo: 0, // 0 = election convocation
 		corpo: [4]int{-1, -1, -1, -1}, // "empty" body (garbage)
