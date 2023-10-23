@@ -54,8 +54,6 @@ func ElectionController(in chan int) {
 	chans[2] <- temp
 	result = <- in
 	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==3) // receber e imprimir confirmacao
-	// result = <- in
-	// fmt.Printf("CONTROLADOR: eleicao de reativacao concluida sucesso = %v\n", result == 4)
 	fmt.Println("--------------------------------------------------------------")
 
 	// 4. encerrar os outros processos para terminar o programa
