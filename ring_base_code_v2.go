@@ -56,6 +56,31 @@ func ElectionController(in chan int) {
 	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==3) // receber e imprimir confirmacao
 	fmt.Println("--------------------------------------------------------------")
 
+	fmt.Printf("CONTROLADOR: mudar o processo 2 para falho\n")
+	temp.tipo = 2
+	chans[1] <- temp
+	result = <- in
+	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==2) // receber e imprimir confirmacao
+	fmt.Println("--------------------------------------------------------------")
+	
+	fmt.Printf("CONTROLADOR: mudar o processo 3 para falho\n")
+	temp.tipo = 2
+	chans[2] <- temp
+	result = <- in
+	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==2) // receber e imprimir confirmacao
+
+	fmt.Println("--------------------------------------------------------------")
+
+	fmt.Printf("CONTROLADOR: solicitar ao processo 0 para iniciar eleicao pois detectou o processo 3 como falho\n")
+	temp.tipo = 4
+	temp.corpo = [4]int{3, 3, 3, 3}
+	chans[3] <- temp
+	result = <- in
+	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==4) // receber e imprimir confirmacao
+
+	fmt.Println("--------------------------------------------------------------")
+
+
 	// 4. encerrar os outros processos para terminar o programa
 	fmt.Println("CONTROLADOR: encerrando todos os processos enviando mensagem de termino (codigo 10)")
 	temp.tipo = 10
@@ -122,9 +147,16 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 			}
 			case 4:  // INITIATE ELECTION (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
 			{
-				fmt.Printf("\t%2d: detectei falha no nodo %d\n", TaskId, temp.corpo[0])
-				performElection(TaskId, in, out, &actualLeader)
-				controle <- 4 // confirm that the election has been concluded to the controller
+					//TODO: missing verification if im the one who faild
+				if !bFailed { // if this process is failed, ignore and just don't put its ID in the message (don't vote)
+					fmt.Printf("\t%2d: detectei falha no nodo %d\n", TaskId, temp.corpo[0])
+					performElection(TaskId, in, out, &actualLeader)
+					controle <- 4 // confirm that the election has been concluded to the controller
+				} else { 
+					fmt.Printf("\t%2d: nao iniciei eleicao, pois estou inativo\n", TaskId) 
+					controle <- -4
+				}
+
 			}
 			case 10: // TERMINATION REQUEST (COMMAND RECEIVED FROM THE CONTROLLER PROCESS)
 			{ 
@@ -143,7 +175,6 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 }
 
 func performElection(TaskId int, in chan mensagem, out chan mensagem, actualLeader *int) { 
-	//TODO: missing verification if im the one who faild
 	electionMsg := mensagem {
 		tipo: 0, // 0 = election convocation
 		corpo: [4]int{-1, -1, -1, -1}, // "empty" body (garbage)
