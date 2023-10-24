@@ -29,59 +29,52 @@ func ElectionController(in chan int) {
 
 	var temp mensagem
 
-	// 1. mudar o processo 3 - canal de entrada 2 - para falho (defini mensagem tipo 2 pra isto)
 	fmt.Printf("CONTROLADOR: mudar o processo 3 para falho\n")
 	temp.tipo = 2
 	chans[2] <- temp
 	var result int = <- in
-	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==2) // receber e imprimir confirmacao
-
+	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==2) // receive and print connfirmation
 	fmt.Println("--------------------------------------------------------------")
 
-	// 2. solicitar ao processo 1 - canal de entrada 0 - para iniciar uma eleicao pois detectou o processo 3 como falho (deve vencer o processo 2)
-	fmt.Printf("CONTROLADOR: solicitar ao processo 1 para iniciar eleicao pois detectou o processo 3 como falho\n")
+	fmt.Printf("CONTROLADOR: solicitar ao processo 1 para iniciar eleicao pois detectou o processo 3 como falho\n") // it is expected that processo 2 wins the election
 	temp.tipo = 4
 	temp.corpo = [4]int{3, 3, 3, 3}
 	chans[0] <- temp
 	result = <- in
-	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==4) // receber e imprimir confirmacao
-
+	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==4) // receive and print connfirmation
 	fmt.Println("--------------------------------------------------------------")
 
-	// 3. reativar o processo 3 - canal de entrada 2. ele deve convocar uma eleicao e vencer
-	fmt.Printf("CONTROLADOR: reativar o processo 3\n")
+	fmt.Printf("CONTROLADOR: reativar o processo 3\n") // when reactivated, process 3 should perform an election and it should win
 	temp.tipo = 3
 	chans[2] <- temp
 	result = <- in
-	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==3) // receber e imprimir confirmacao
+	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==3) // receive and print connfirmation
 	fmt.Println("--------------------------------------------------------------")
 
 	fmt.Printf("CONTROLADOR: mudar o processo 2 para falho\n")
 	temp.tipo = 2
 	chans[1] <- temp
 	result = <- in
-	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==2) // receber e imprimir confirmacao
+	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==2) // receive and print connfirmation
 	fmt.Println("--------------------------------------------------------------")
 	
 	fmt.Printf("CONTROLADOR: mudar o processo 3 para falho\n")
 	temp.tipo = 2
 	chans[2] <- temp
 	result = <- in
-	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==2) // receber e imprimir confirmacao
-
+	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==2) // receive and print connfirmation
 	fmt.Println("--------------------------------------------------------------")
 
-	fmt.Printf("CONTROLADOR: solicitar ao processo 0 para iniciar eleicao pois detectou o processo 3 como falho\n")
+	fmt.Printf("CONTROLADOR: solicitar ao processo 0 para iniciar eleicao pois detectou o processo 2 como falho\n") // process 1 should win the election
 	temp.tipo = 4
-	temp.corpo = [4]int{3, 3, 3, 3}
+	temp.corpo = [4]int{2, 2, 2, 2}
 	chans[3] <- temp
 	result = <- in
-	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==4) // receber e imprimir confirmacao
-
+	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==4) // receive and print connfirmation
 	fmt.Println("--------------------------------------------------------------")
 
 
-	// 4. encerrar os outros processos para terminar o programa
+	// kill all child processes to terminate the program
 	fmt.Println("CONTROLADOR: encerrando todos os processos enviando mensagem de termino (codigo 10)")
 	temp.tipo = 10
 	for i, c := range chans {
