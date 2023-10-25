@@ -14,7 +14,7 @@ type mensagem struct {
 }
 
 var (
-	chans = []chan mensagem{ // vetor de canais para formar o anel de eleicao - chan[0], chan[1] and chan[2] ...
+	chans = []chan mensagem{ // vetor de canais para formar o anel de eleicao
 		make(chan mensagem),
 		make(chan mensagem),
 		make(chan mensagem),
@@ -29,32 +29,10 @@ func ElectionController(in chan int) {
 
 	var temp mensagem
 
-	fmt.Printf("CONTROLADOR: mudar o processo 3 para falho\n")
-	temp.tipo = 2
-	chans[2] <- temp
-	var result int = <- in
-	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==2) // receive and print connfirmation
-	fmt.Println("--------------------------------------------------------------")
-
-	fmt.Printf("CONTROLADOR: solicitar ao processo 1 para iniciar eleicao pois detectou o processo 3 como falho\n") // it is expected that processo 2 wins the election
-	temp.tipo = 4
-	temp.corpo = [4]int{3, 3, 3, 3}
-	chans[0] <- temp
-	result = <- in
-	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==4) // receive and print connfirmation
-	fmt.Println("--------------------------------------------------------------")
-
-	fmt.Printf("CONTROLADOR: reativar o processo 3\n") // when reactivated, process 3 should perform an election and it should win
-	temp.tipo = 3
-	chans[2] <- temp
-	result = <- in
-	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==3) // receive and print connfirmation
-	fmt.Println("--------------------------------------------------------------")
-
 	fmt.Printf("CONTROLADOR: mudar o processo 2 para falho\n")
 	temp.tipo = 2
 	chans[1] <- temp
-	result = <- in
+	var result int = <- in
 	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==2) // receive and print connfirmation
 	fmt.Println("--------------------------------------------------------------")
 	
@@ -73,6 +51,12 @@ func ElectionController(in chan int) {
 	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==4) // receive and print connfirmation
 	fmt.Println("--------------------------------------------------------------")
 
+	fmt.Printf("CONTROLADOR: reativar o processo 3\n") // when reactivated, process 3 should perform an election and it should win
+	temp.tipo = 3
+	chans[2] <- temp
+	result = <- in
+	fmt.Printf("CONTROLADOR: sucesso = %v\n", result==3) // receive and print connfirmation
+	fmt.Println("--------------------------------------------------------------")
 
 	// kill all child processes to terminate the program
 	fmt.Println("CONTROLADOR: encerrando todos os processos enviando mensagem de termino (codigo 10)")
@@ -133,7 +117,7 @@ func ElectionStage(TaskId int, in chan mensagem, out chan mensagem, leader int) 
 				bFailed = false
 				fmt.Printf("\t%2d: falho %v \n", TaskId, bFailed)
 				fmt.Printf("\t%2d: lider atual = %d\n", TaskId, actualLeader)
-				fmt.Printf("\t%2d: iniciando eleicao por volta a falha\n", TaskId)
+				fmt.Printf("\t%2d: iniciando eleicao porque voltei a ativa e nao sei o estado atual do sistema\n", TaskId)
 				performElection(TaskId, in, out, &actualLeader)
 				controle <- 3
 					
@@ -232,4 +216,6 @@ func main() {
 	fmt.Println() // extra line break without warning
 
 	wg.Wait() // Wait for the goroutines to finish\
+	fmt.Println("PRINCIPAL: processo principal concluido")
+	fmt.Println() // extra line break without warning
 }
